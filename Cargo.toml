@@ -1,0 +1,17 @@
+[package]
+name = "adpop"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.6", features = ["derive"] }
+wayland-client = "0.31"
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }
+x11rb = "0.14"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+fontdue = "0.9"
+memmap2 = "0.9"
+libc = "0.2"
+
+[profile.release]
+strip = true
