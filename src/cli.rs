@@ -19,7 +19,7 @@ pub fn parse_args(args: Vec<String>) -> Result<PopupSpec, String> {
         .arg(Arg::new("url").long("url").value_name("URL").help("点击跳转链接"))
         .arg(Arg::new("click-zone").long("click-zone").value_name("ZONE").default_value("none").help("可点击区域：all|button|body|none"))
         .arg(Arg::new("animate").long("animate").value_name("MODE").default_value("none").help("画面动画：none|marquee|flash"))
-        .get_matches_from(args);
+        .try_get_matches_from(args).map_err(|e| e.to_string())?;
 
     let mut spec = PopupSpec::default();
     if let Some(t) = matches.get_one::<String>("title") { spec.title = t.clone(); }
@@ -75,6 +75,12 @@ mod tests {
         assert_eq!(spec.count, 3);
         assert!(spec.no_close);
         assert_eq!(spec.size, Size { w: 400, h: 300 });
+    }
+
+    #[test]
+    fn parse_bad_flag() {
+        // clap 级错误（未知 flag）必须返回 Err，而非 panic/退出码 101
+        assert!(parse_args(vec!["adpop".into(), "--bogus".into()]).is_err());
     }
 
     #[test]
