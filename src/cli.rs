@@ -19,7 +19,14 @@ pub fn parse_args(args: Vec<String>) -> Result<PopupSpec, String> {
         .arg(Arg::new("url").long("url").value_name("URL").help("点击跳转链接"))
         .arg(Arg::new("click-zone").long("click-zone").value_name("ZONE").default_value("none").help("可点击区域：all|button|body|none"))
         .arg(Arg::new("animate").long("animate").value_name("MODE").default_value("none").help("画面动画：none|marquee|flash"))
-        .try_get_matches_from(args).map_err(|e| e.to_string())?;
+        .try_get_matches_from(args)
+        .map_err(|e| match e.kind() {
+            clap::error::ErrorKind::DisplayHelp | clap::error::ErrorKind::DisplayVersion => {
+                let _ = e.print();
+                std::process::exit(0);
+            }
+            _ => e.to_string(),
+        })?;
 
     let mut spec = PopupSpec::default();
     if let Some(t) = matches.get_one::<String>("title") { spec.title = t.clone(); }
@@ -75,6 +82,26 @@ mod tests {
         assert_eq!(spec.count, 3);
         assert!(spec.no_close);
         assert_eq!(spec.size, Size { w: 400, h: 300 });
+    }
+
+    #[test]
+    fn help_prints_and_exits_zero() {
+        // 子进程真实走 parse_args(["--help"])：验证打印帮助且 exit(0)，
+        // 防止回归成 Err → Task 9 接线后 exit 2。
+        if std::env::var("ADPOP_HELP_EXIT_CHECK").is_ok() {
+            let _ = parse_args(vec!["adpop".into(), "--help".into()]);
+            panic!("--help 应 exit(0)，不应正常返回");
+        }
+        let exe = std::env::current_exe().unwrap();
+        let out = std::process::Command::new(&exe)
+            .env("ADPOP_HELP_EXIT_CHECK", "1")
+            .arg("cli::tests::help_prints_and_exits_zero")
+            .arg("--nocapture")
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "subprocess 应 exit(0)，实际 {:?}", out.status);
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(stdout.contains("Usage: adpop"), "帮助未打印: {}", stdout);
     }
 
     #[test]
