@@ -41,8 +41,8 @@ adpop (Rust, 单二进制)
 
 **运行时外部依赖**（子进程方式，非库嵌入）：
 
-- `ffmpeg`（视频解帧：`ffmpeg -i in.mp4 -vf scale,fps -t 15 frames_%03d.png`）
-- `mpv`（音频播放：`mpv --no-video --volume=80 file`）
+- `ffmpeg`（视频流式管道：`ffmpeg -i in.mp4 -vf scale=WxH,fps=15 -f rawvideo -pix_fmt bgr0 pipe:1`，逐帧读取，**任意时长**、内存恒定）
+- `mpv`（音频播放：`mpv --no-video --volume=80 file` 子进程）
 
 ## CLI 协议（给其他软件的 API）
 
@@ -56,7 +56,7 @@ adpop show \
   --text "点此领取 iPhone 15" \   # 正文，支持多行（\n）
   --image /path/ad.png \          # 静态图（PNG/JPEG，等比缩放）
   --image /path/ad.gif \          # 动图（GIF 多帧循环播放）
-  --video /path/ad.mp4 \          # 视频（ffmpeg 解帧播放，≤15s/15fps/弹窗尺寸）
+  --video /path/ad.mp4 \          # 视频（ffmpeg 流式管道实时播放，任意时长，15fps/弹窗尺寸）
   --audio /path/bgm.mp3 \         # 音频（mpv 子进程后台播放；--video 时默认用其音轨）
   --duration 15 \                 # 秒，超时自动关闭（默认 15；0 = 不自动关）
   --corner bottom-right \         # top-left|top-right|bottom-left|bottom-right
@@ -72,7 +72,7 @@ adpop show \
 ### 参数语义
 
 - `--image`：PNG/JPEG 静态图；`.gif` 时按帧延迟循环播放（多 buffer 轮换）
-- `--video`：ffmpeg 解帧为帧序列（限制 ≤15 秒、15fps、弹窗尺寸，内存约 36MB），复用动图播放机制；同时 spawn `mpv --no-video` 播放其音轨
+- `--video`：ffmpeg 流式管道实时输出 rawvideo 帧（`bgr0` = XRGB8888 字节序零转换），Rust 逐帧读取（非阻塞 poll + read_exact）→ 多 buffer 轮换显示；**任意时长**（帧不缓存，内存恒定）；同时 spawn `mpv --no-video` 播放其音轨
 - `--audio`：独立音频文件（mpv 子进程），可单独用（无画面纯声音）
 - `--pos`：弹窗左上角绝对坐标。Wayland 端用 anchor+margin 四象限计算（margin 可为负）；X11 端直接窗口坐标。与 `--corner` 互斥，同时给时 `--pos` 优先
 - `--click-zone`：配合 `--url` 生效。`all`=主体可点（关闭按钮除外）、`button`=仅按钮、`body`=仅正文、`none`=不可点击。无 `--url` 时点击无效
@@ -116,7 +116,7 @@ adpop show \
 - 后端探测：优先 Wayland，连接失败自动降级 X11；都失败退出码 3
 - 图片路径不存在/解码失败：警告并降级为纯文字弹窗，退出码 4
 - GIF 解码失败：同图片降级路径（退出码 4）
-- 视频解帧失败（ffmpeg 缺失/文件损坏）：警告并降级为文字弹窗（无视频画面），退出码 5；音频播放失败（mpv 缺失）不阻塞弹窗，仅警告
+- 视频管道失败（ffmpeg 缺失/文件损坏）：警告并降级为文字弹窗（无视频画面），退出码 5；音频播放失败（mpv 缺失）不阻塞弹窗，仅警告
 - 参数错误（非法 corner、非法 size、非法 pos、非法 click-zone/animate、未知子命令）：退出码 2 + stderr 报错
 
 ## 测试
@@ -132,7 +132,7 @@ adpop show \
   - niri 上跑 Wayland 后端实测弹窗效果（截图确认）
   - X11 后端用现有 XWayland（DISPLAY=:0）实测
   - 用现有 GLM-OCR 技能对截图做 OCR 验证弹窗文字渲染正确
-  - 视频：ffmpeg 解帧 + mpv 音频实测（画面帧间差异 + mpv 进程存活）
+  - 视频：ffmpeg 流式管道 + mpv 音频实测（长视频帧间差异 + mpv 进程存活）
   - 点击跳转：虚拟指针（zwlr_virtual_pointer_manager_v1）实测 xdg-open 拉起浏览器
 
 ## 交付物
