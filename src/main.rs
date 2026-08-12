@@ -1,3 +1,4 @@
+mod behavior;
 mod cli;
 mod fonts;
 mod render;
