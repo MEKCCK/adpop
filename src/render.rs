@@ -45,7 +45,7 @@ fn blend_text(data: &mut [u8], w: u32, h: u32, x0: u32, y0: u32, glyph: &[u8], g
 
 fn draw_close_x(data: &mut [u8], w: u32, _h: u32, rect: (u32, u32, u32, u32)) {
     let (x0, y0, rw, rh) = rect;
-    let white = [0xFF, 0xFF, 0xFF, 0xFF];
+    let white = CLOSE_X_COLOR;
     let cx = x0 + rw / 2;
     let cy = y0 + rh / 2;
     // 中央白色 ×：两条 3px 粗对角线（半臂长 6px），中心在按钮正中
@@ -62,21 +62,30 @@ pub const TITLEBAR_H: u32 = 24;
 pub const CLOSE_W: u32 = 32;
 pub const MARGIN_X: u32 = 8;
 
+// XRGB8888 小端：32-bit 值 = 0xXXRRGGBB，小端内存字节序为 [B,G,R,X]，
+// 故颜色字面量一律按 [B,G,R,0xFF] 书写（与图片路径 data[i]=B 的写入一致）。
+const BG_COLOR: [u8; 4] = [0xFF, 0xFF, 0xFF, 0xFF]; // 白底（对称色）
+const TITLEBAR_COLOR: [u8; 4] = [0xF0, 0xF0, 0xF0, 0xFF]; // 灰标题栏（对称色）
+const TITLE_TEXT_COLOR: [u8; 4] = [0x33, 0x33, 0x33, 0xFF]; // 深灰标题（对称色）
+const BODY_TEXT_COLOR: [u8; 4] = [0x00, 0x00, 0x00, 0xFF]; // 黑正文（对称色）
+const CLOSE_X_COLOR: [u8; 4] = [0xFF, 0xFF, 0xFF, 0xFF]; // 白 ×（对称色）
+const CLOSE_BTN_COLOR: [u8; 4] = [0x50, 0x50, 0xE8, 0xFF]; // 红色按钮底：RGB(0xE8,0x50,0x50) 按小端内存 B,G,R,X 排布
+
 pub fn render_popup(spec: &PopupSpec, fonts: &Fonts) -> Result<PopupPixels, String> {
     let w = spec.size.w;
     let h = spec.size.h;
     let mut data = vec![0xFFu8; (w * h * 4) as usize]; // 默认白
 
     // 标题栏
-    fill_rect(&mut data, w, h, 0, 0, w, TITLEBAR_H, [0xF0, 0xF0, 0xF0, 0xFF]);
+    fill_rect(&mut data, w, h, 0, 0, w, TITLEBAR_H, TITLEBAR_COLOR);
 
     // 标题文字（深灰）
     let (tw, th, tbitmap) = rasterize_line(&fonts.regular, 14.0, &spec.title);
-    blend_text(&mut data, w, h, MARGIN_X, (TITLEBAR_H.saturating_sub(th)) / 2, &tbitmap, tw, th, [0x33, 0x33, 0x33, 0xFF]);
+    blend_text(&mut data, w, h, MARGIN_X, (TITLEBAR_H.saturating_sub(th)) / 2, &tbitmap, tw, th, TITLE_TEXT_COLOR);
 
     // 关闭按钮（红底 + 白×）
-    let close = (w - CLOSE_W, 0u32, CLOSE_W, TITLEBAR_H);
-    fill_rect(&mut data, w, h, close.0, close.1, close.2, close.3, [0xE8, 0x50, 0x50, 0xFF]);
+    let close = (w.saturating_sub(CLOSE_W), 0u32, CLOSE_W, TITLEBAR_H); // w<CLOSE_W 时 x0=0（不再 u32 下溢）
+    fill_rect(&mut data, w, h, close.0, close.1, close.2, close.3, CLOSE_BTN_COLOR);
     draw_close_x(&mut data, w, h, close);
 
     // 正文区域
@@ -124,9 +133,9 @@ pub fn render_popup(spec: &PopupSpec, fonts: &Fonts) -> Result<PopupPixels, Stri
                     cut.push(c);
                 }
                 let (_, lh2, bitmap2) = rasterize_line(&fonts.regular, 14.0, &cut);
-                blend_text(&mut data, w, h, MARGIN_X, cursor_y, &bitmap2, text_width(&fonts.regular, 14.0, &cut), lh2, [0x00, 0x00, 0x00, 0xFF]);
+                blend_text(&mut data, w, h, MARGIN_X, cursor_y, &bitmap2, text_width(&fonts.regular, 14.0, &cut), lh2, BODY_TEXT_COLOR);
             } else {
-                blend_text(&mut data, w, h, MARGIN_X, cursor_y, &bitmap, lw, lh, [0x00, 0x00, 0x00, 0xFF]);
+                blend_text(&mut data, w, h, MARGIN_X, cursor_y, &bitmap, lw, lh, BODY_TEXT_COLOR);
             }
         }
         cursor_y += 16;
@@ -168,10 +177,11 @@ mod tests {
 
     #[test]
     fn close_button_red() {
+        // XRGB8888 小端：内存字节序 B,G,R,X → RGB(0xE8,0x50,0x50) 红在内存为 [0x50,0x50,0xE8,0xFF]
         let fonts = load_fonts().unwrap();
         let p = render_popup(&sample_spec(), &fonts).unwrap();
         let i = ((0 * p.w + (p.w - 16)) * 4) as usize; // 右上角中部
-        assert_eq!(&p.data[i..i + 4], &[0xE8, 0x50, 0x50, 0xFF]);
+        assert_eq!(&p.data[i..i + 4], &CLOSE_BTN_COLOR);
     }
 
     #[test]
@@ -190,8 +200,20 @@ mod tests {
         assert_eq!(at(w - 16 - 4, 16), [0xFF, 0xFF, 0xFF, 0xFF], "× 左下臂应为白");
         assert_eq!(at(w - 16 + 4, 16), [0xFF, 0xFF, 0xFF, 0xFF], "× 右下臂应为白");
         // 按钮四角仍为红底
-        assert_eq!(at(w - 32 + 1, 1), [0xE8, 0x50, 0x50, 0xFF]);
-        assert_eq!(at(w - 1, 23), [0xE8, 0x50, 0x50, 0xFF]);
+        assert_eq!(at(w - 32 + 1, 1), CLOSE_BTN_COLOR);
+        assert_eq!(at(w - 1, 23), CLOSE_BTN_COLOR);
+    }
+
+    #[test]
+    fn narrow_popup_no_underflow() {
+        // w < CLOSE_W(32) 时不得 u32 下溢（回归：w - CLOSE_W 曾 panic）
+        let fonts = load_fonts().unwrap();
+        let mut spec = sample_spec();
+        spec.size = Size { w: 16, h: 48 };
+        let p = render_popup(&spec, &fonts).unwrap();
+        assert_eq!(p.w, 16);
+        assert_eq!(p.h, 48);
+        assert_eq!(p.data.len(), (16 * 48 * 4) as usize);
     }
 
     #[test]
