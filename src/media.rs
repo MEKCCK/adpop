@@ -37,8 +37,8 @@ pub fn spawn_video_stream(path: &str, w: u32, h: u32, fps: u32) -> Result<VideoS
     let mut child = Command::new("ffmpeg")
         .args(["-i", path, "-vf", &format!("scale={w}:{h},fps={fps}"), "-f", "rawvideo", "-pix_fmt", "bgr0", "pipe:1"])
         .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null())
-        .spawn().map_err(|e| format!("ffmpeg 启动失败: {e}"))?;
-    let stdout = child.stdout.take().ok_or("无法取 ffmpeg 输出管道")?;
+        .spawn().map_err(|e| format!("视频解码失败: ffmpeg 启动失败: {e}"))?;
+    let stdout = child.stdout.take().ok_or("视频解码失败: 无法取 ffmpeg 输出管道")?;
     Ok(VideoStream { child, stdout })
 }
 

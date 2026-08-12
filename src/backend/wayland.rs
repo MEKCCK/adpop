@@ -255,8 +255,12 @@ impl PopupBackend for WaylandBackend {
                 }
             } else {
                 let t = Instant::now() - start;
-                // 读视频帧
+                // 读视频帧（检测 ffmpeg 无输出：子进程已退出且从未读到帧 → 视频失败）
                 if let Some(vs) = &mut video {
+                    let ffmpeg_done = vs.child.try_wait().map(|s| s.is_some()).unwrap_or(false);
+                    if ffmpeg_done && t.as_secs() >= 2 {
+                        return Err("视频解码失败: ffmpeg 无输出（文件损坏或解码失败）".to_string());
+                    }
                     if try_read_video_frame(vs, &mut video_frame) {
                         let media = MediaFrame::Video(&video_frame);
                         if let Ok(p) = render_popup(spec, &fonts, Some(media), t.as_millis() as u64) {

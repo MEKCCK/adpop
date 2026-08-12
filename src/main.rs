@@ -57,7 +57,7 @@ fn show_all(b: &mut dyn PopupBackend, spec: &PopupSpec) -> i32 {
             }
             Err(e) => {
                 eprintln!("adpop: {e}");
-                return EXIT_MEDIA;
+                return if e.contains("视频") { EXIT_VIDEO } else { EXIT_MEDIA };
             }
         }
     }

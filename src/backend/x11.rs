@@ -80,6 +80,10 @@ impl PopupBackend for X11Backend {
             // 媒体帧/动画重绘（每 80ms 检查一次新帧）
             let mut repaint = false;
             if let Some(vs) = &mut video {
+                let ffmpeg_done = vs.child.try_wait().map(|s| s.is_some()).unwrap_or(false);
+                if ffmpeg_done && t.as_secs() >= 2 {
+                    return Err("视频解码失败: ffmpeg 无输出（文件损坏或解码失败）".to_string());
+                }
                 if try_read_video_frame(vs, &mut video_frame) {
                     repaint = true;
                 }
