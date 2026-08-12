@@ -44,7 +44,6 @@ pub fn rasterize_line(font: &Font, px: f32, s: &str) -> (u32, u32, Vec<u8>) {
     for c in s.chars() {
         let (m, bitmap) = font.rasterize(c, px);
         let cw = m.width as usize;
-        let ch = m.height as usize;
         for (i, &v) in bitmap.iter().enumerate() {
             let bx = i % cw;
             let by = i / cw;
