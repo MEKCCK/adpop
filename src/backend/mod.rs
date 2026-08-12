@@ -1,3 +1,4 @@
+pub mod wayland;
 pub mod x11;
 
 use crate::spec::{CloseReason, PopupSpec};
