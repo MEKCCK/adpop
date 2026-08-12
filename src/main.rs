@@ -2,6 +2,7 @@ mod backend;
 mod behavior;
 mod cli;
 mod fonts;
+mod media;
 mod render;
 mod session;
 mod spec;
