@@ -63,6 +63,26 @@ pub fn play_audio(file: &str) -> Option<Child> {
         .spawn().ok()
 }
 
+/// 音频守卫：作用域结束时自动 kill mpv（防止弹窗关闭后音频继续播放）
+pub struct AudioGuard(pub Option<Child>);
+
+impl Drop for AudioGuard {
+    fn drop(&mut self) {
+        if let Some(mut c) = self.0.take() {
+            let _ = c.kill();
+            let _ = c.wait();
+        }
+    }
+}
+
+impl AudioGuard {
+    /// 从 --audio 或 --video（默认音轨）启动 mpv
+    pub fn from_spec(spec: &crate::spec::PopupSpec) -> Self {
+        let file = spec.audio.as_ref().or(spec.video.as_ref());
+        AudioGuard(file.and_then(|f| play_audio(f)))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
