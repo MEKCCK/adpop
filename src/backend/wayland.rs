@@ -127,7 +127,7 @@ impl PopupBackend for WaylandBackend {
 
         // 渲染
         let fonts = crate::fonts::load_fonts().map_err(|e| e.to_string())?;
-        let popup = render_popup(spec, &fonts).map_err(|e| e.to_string())?;
+        let popup = render_popup(spec, &fonts, None, 0).map_err(|e| e.to_string())?;
         let (w, h) = (popup.w as i32, popup.h as i32);
         let stride = (popup.w * 4) as i32;
 

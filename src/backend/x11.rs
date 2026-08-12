@@ -59,7 +59,7 @@ impl PopupBackend for X11Backend {
 
         // 渲染像素
         let fonts = crate::fonts::load_fonts().map_err(|e| e.to_string())?;
-        let popup = render_popup(spec, &fonts).map_err(|e| e.to_string())?;
+        let popup = render_popup(spec, &fonts, None, 0).map_err(|e| e.to_string())?;
 
         // GC + PutImage（ZPixmap depth 24，小端 XRGB8888）
         let gc = conn.generate_id().map_err(|e| format!("generate_id gc: {e}"))?;
